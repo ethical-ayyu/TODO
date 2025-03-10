@@ -22,6 +22,7 @@ const TaskInput = ({ onAddTask = () => {} }: TaskInputProps) => {
       onAddTask({ title, dueDate });
       setTitle("");
       setDueDate(null);
+      setIsCalendarOpen(false);
     }
   };
 

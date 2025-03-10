@@ -38,11 +38,13 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 interface SignupFormProps {
   onSubmit?: (values: SignupFormValues) => void;
   isLoading?: boolean;
+  error?: string;
 }
 
 const SignupForm = ({
   onSubmit = () => {},
   isLoading = false,
+  error = "",
 }: SignupFormProps) => {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -66,6 +68,12 @@ const SignupForm = ({
       <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-gray-100">
         Create an Account
       </h2>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -168,7 +176,14 @@ const SignupForm = ({
           />
 
           <Button type="submit" className="w-full mt-6" disabled={isLoading}>
-            {isLoading ? "Creating Account..." : "Sign Up"}
+            {isLoading ? (
+              <>
+                <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
+                Creating Account...
+              </>
+            ) : (
+              "Sign Up"
+            )}
           </Button>
 
           <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">

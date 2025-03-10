@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "../ui/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface Task {
   id: string;
@@ -88,32 +89,113 @@ const TaskDashboard = ({
   };
 
   // Handle adding a new task
-  const handleAddTask = (taskData: { title: string; dueDate: Date | null }) => {
-    const newTask: Task = {
-      id: `task-${Date.now()}`,
-      title: taskData.title,
-      completed: false,
-      dueDate: taskData.dueDate || new Date(Date.now() + 86400000), // Default to tomorrow if no date
-    };
+  const handleAddTask = async (newTaskData: {
+    title: string;
+    dueDate: Date | null;
+  }) => {
+    console.log("Adding task:", newTaskData);
+    try {
+      // Get current user
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
 
-    setTasks([...tasks, newTask]);
-    toast({
-      title: "Task added",
-      description: `"${taskData.title}" has been added to your tasks.`,
-    });
+      if (!session) {
+        console.error("No active session found");
+        toast({
+          title: "Authentication required",
+          description: "You must be logged in to add tasks.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("User ID:", session.user.id);
+
+      // Insert task into Supabase
+      const { data: insertedTask, error: insertError } = await supabase
+        .from("tasks")
+        .insert({
+          user_id: session.user.id,
+          title: newTaskData.title,
+          completed: false,
+          due_date: newTaskData.dueDate
+            ? newTaskData.dueDate.toISOString()
+            : new Date(Date.now() + 86400000).toISOString(),
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Error adding task:", insertError);
+        toast({
+          title: "Error",
+          description: "Failed to add task. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (insertedTask) {
+        const newTask: Task = {
+          id: insertedTask.id,
+          title: insertedTask.title,
+          completed: insertedTask.completed || false,
+          dueDate: insertedTask.due_date,
+        };
+
+        setTasks([...tasks, newTask]);
+        toast({
+          title: "Task added",
+          description: `"${insertedTask.title}" has been added to your tasks.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error adding task:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle toggling task completion status
-  const handleToggleComplete = (id: string, completed: boolean) => {
-    setTasks(
-      tasks.map((task) => (task.id === id ? { ...task, completed } : task)),
-    );
+  const handleToggleComplete = async (id: string, completed: boolean) => {
+    try {
+      // Update task in Supabase
+      const { error } = await supabase
+        .from("tasks")
+        .update({ completed })
+        .eq("id", id);
 
-    const taskTitle = tasks.find((task) => task.id === id)?.title;
-    toast({
-      title: completed ? "Task completed" : "Task marked as pending",
-      description: `"${taskTitle}" has been ${completed ? "completed" : "marked as pending"}.`,
-    });
+      if (error) {
+        console.error("Error updating task:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update task. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update local state
+      setTasks(
+        tasks.map((task) => (task.id === id ? { ...task, completed } : task)),
+      );
+
+      const taskTitle = tasks.find((task) => task.id === id)?.title;
+      toast({
+        title: completed ? "Task completed" : "Task marked as pending",
+        description: `"${taskTitle}" has been ${completed ? "completed" : "marked as pending"}.`,
+      });
+    } catch (error) {
+      console.error("Error toggling task completion:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle editing a task
@@ -131,22 +213,55 @@ const TaskDashboard = ({
   };
 
   // Handle saving edited task
-  const handleSaveEditedTask = () => {
+  const handleSaveEditedTask = async () => {
     if (editingTask && taskTitle.trim()) {
-      const updatedTask = {
-        ...editingTask,
-        title: taskTitle,
-        dueDate: taskDueDate || new Date(),
-      };
+      try {
+        const updatedTask = {
+          ...editingTask,
+          title: taskTitle,
+          dueDate: taskDueDate || new Date(),
+        };
 
-      setTasks(
-        tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
-      );
-      setEditingTask(null);
-      toast({
-        title: "Task updated",
-        description: `"${updatedTask.title}" has been updated.`,
-      });
+        // Update task in Supabase
+        const { error } = await supabase
+          .from("tasks")
+          .update({
+            title: taskTitle,
+            due_date: taskDueDate
+              ? taskDueDate.toISOString()
+              : new Date().toISOString(),
+          })
+          .eq("id", editingTask.id);
+
+        if (error) {
+          console.error("Error updating task:", error);
+          toast({
+            title: "Error",
+            description: "Failed to update task. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Update local state
+        setTasks(
+          tasks.map((task) =>
+            task.id === updatedTask.id ? updatedTask : task,
+          ),
+        );
+        setEditingTask(null);
+        toast({
+          title: "Task updated",
+          description: `"${updatedTask.title}" has been updated.`,
+        });
+      } catch (error) {
+        console.error("Error saving edited task:", error);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -156,16 +271,45 @@ const TaskDashboard = ({
   };
 
   // Handle confirming task deletion
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deletingTaskId) {
-      const taskTitle = tasks.find((task) => task.id === deletingTaskId)?.title;
-      setTasks(tasks.filter((task) => task.id !== deletingTaskId));
-      setDeletingTaskId(null);
-      toast({
-        title: "Task deleted",
-        description: `"${taskTitle}" has been deleted.`,
-        variant: "destructive",
-      });
+      try {
+        const taskTitle = tasks.find(
+          (task) => task.id === deletingTaskId,
+        )?.title;
+
+        // Delete task from Supabase
+        const { error } = await supabase
+          .from("tasks")
+          .delete()
+          .eq("id", deletingTaskId);
+
+        if (error) {
+          console.error("Error deleting task:", error);
+          toast({
+            title: "Error",
+            description: "Failed to delete task. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Update local state
+        setTasks(tasks.filter((task) => task.id !== deletingTaskId));
+        setDeletingTaskId(null);
+        toast({
+          title: "Task deleted",
+          description: `"${taskTitle}" has been deleted.`,
+          variant: "destructive",
+        });
+      } catch (error) {
+        console.error("Error confirming task deletion:", error);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -193,7 +337,7 @@ const TaskDashboard = ({
       {/* Task List */}
       <TaskList
         tasks={tasks}
-        isLoading={isLoading}
+        isLoading={false}
         filter={activeFilter}
         onToggleComplete={handleToggleComplete}
         onEdit={handleEditTask}

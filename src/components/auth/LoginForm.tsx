@@ -152,7 +152,14 @@ const LoginForm = ({
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Logging in..." : "Log in"}
+            {isLoading ? (
+              <>
+                <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
+                Logging in...
+              </>
+            ) : (
+              "Log in"
+            )}
           </Button>
 
           <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
