@@ -29,12 +29,16 @@ interface LoginFormProps {
   onSubmit?: (values: LoginFormValues) => void;
   isLoading?: boolean;
   error?: string;
+  onForgotPasswordClick?: () => void;
+  onSignupClick?: () => void;
 }
 
 const LoginForm = ({
   onSubmit = () => {},
   isLoading = false,
   error = "",
+  onForgotPasswordClick = () => {},
+  onSignupClick = () => {},
 }: LoginFormProps) => {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -146,6 +150,7 @@ const LoginForm = ({
               variant="link"
               className="text-sm text-blue-600 dark:text-blue-400 p-0 h-auto"
               type="button"
+              onClick={onForgotPasswordClick}
             >
               Forgot password?
             </Button>
@@ -168,6 +173,7 @@ const LoginForm = ({
               variant="link"
               className="p-0 h-auto text-blue-600 dark:text-blue-400"
               type="button"
+              onClick={onSignupClick}
             >
               Sign up
             </Button>
