@@ -65,7 +65,10 @@ const TaskEditDialog = ({
   });
 
   const handleSubmit = (values: TaskFormValues) => {
-    onSave(task.id, values);
+    onSave(task.id, {
+      title: values.title,
+      dueDate: values.dueDate,
+    });
     onOpenChange(false);
   };
 
